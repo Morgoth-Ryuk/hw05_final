@@ -1,0 +1,25 @@
+<!-- templates/posts/follow.html -->
+{% extends 'base.html' %} 
+{% load static %}
+{% load thumbnail %}
+{% block title %}  Последние обновления по подпискам{% endblock %}
+
+{% block content %}
+      <!-- класс py-5 создает отступы сверху и снизу блока -->
+      <div class="container py-5">
+        <h1> Последние обновления по подпискам </h1>
+        <hr>   
+        <article>
+          {% for post in page_obj %}
+            {% include  'includes/postcard.html'%}
+            {% if post.group %}
+            <a href="{% url 'posts:group_list' post.group.slug %}">все записи группы</a>
+            <!-- <a href="">все записи группы</a>-->
+            {% endif %}
+          {% if not forloop.last %}<hr>{% endif %}
+          {% endfor %} 
+        </article>
+        <!-- под последним постом нет линии -->
+        {% include 'posts/includes/paginator.html' %}
+      </div>
+{% endblock %}

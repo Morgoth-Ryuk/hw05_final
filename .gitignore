@@ -144,6 +144,10 @@ dmypy.json
 .history/
 
 .mypy_cache
+.coverage
+.coverage.*
+coverage.xml
+*.cover
 
 # папки со статикой и медиа
 static/
