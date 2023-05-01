@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from .models import Post, Group, Follow
+from .models import Post, Group, Follow, Comment
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import get_user_model
 from .forms import PostForm, CommentForm
@@ -7,22 +7,23 @@ from .utils import paginator_calculate
 
 
 User = get_user_model()
+
 QUANTITY_OF_POSTS_ON_PAGE = 10
-FEW_QUANTITY_OF_POSTS_ON_PAGE = 2
 
 
 def index(request):
     """
     Главная страница.
     """
-    post_list = Post.objects.order_by('-pub_date')
+    template = 'posts/index.html'
+    post_list = Post.objects.all()
     page_obj = paginator_calculate(request,
                                    post_list,
                                    QUANTITY_OF_POSTS_ON_PAGE)
     context = {
         'page_obj': page_obj,
     }
-    return render(request, 'posts/index.html', context)
+    return render(request, template, context)
 
 
 def groups(request, slug):
@@ -31,7 +32,7 @@ def groups(request, slug):
     """
     template = 'posts/group_list.html'
     group = get_object_or_404(Group, slug=slug)
-    post_list = group.posts.all().order_by('-pub_date')
+    post_list = group.posts.all()
     page_obj = paginator_calculate(request,
                                    post_list,
                                    QUANTITY_OF_POSTS_ON_PAGE)
@@ -47,11 +48,11 @@ def profile(request, username):
     Профиль.
     """
     author = get_object_or_404(User, username=username)
-    post_list = author.posts.order_by('-pub_date')
+    post_list = author.posts.all()
     post_count = post_list.count()
     page_obj = paginator_calculate(request,
                                    post_list,
-                                   FEW_QUANTITY_OF_POSTS_ON_PAGE)
+                                   QUANTITY_OF_POSTS_ON_PAGE)
 
     if request.user.is_authenticated:
         following = Follow.objects.filter(
@@ -77,15 +78,11 @@ def post_detail(request, post_id):
     template = 'posts/post_detail.html'
     post = get_object_or_404(Post, pk=post_id)
     post_count = post.author.posts.count()
-    author = post.author
-    date_of_post = post.pub_date
-    comments = post.comments.all
+    comments = Comment.objects.filter(post_id=post_id)
     form = CommentForm(request.POST or None)
     context = {
-        'author': author,
         'post_count': post_count,
         'post': post,
-        'date_of_post': date_of_post,
         'comments': comments,
         'form': form,
     }
@@ -135,8 +132,6 @@ def post_edit(request, post_id):
                        'group': group,
                        'is_edit': is_edit, }
             return render(request, 'posts/create_post.html', context)
-    else:
-        return redirect('posts:post_detail', post_id=post.id)
     return redirect('posts:post_detail', post_id=post.id)
 
 

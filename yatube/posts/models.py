@@ -85,10 +85,10 @@ class Comment(models.Model):
         auto_now_add=True)
     post = models.ForeignKey(
         Post,
-        blank=True, null=True,
         on_delete=models.CASCADE,
         related_name='comments',
-        verbose_name='Комментарий'
+        verbose_name='Комментарий',
+        help_text='Укажите пост для комментирования'
     )
     author = models.ForeignKey(
         User,
@@ -114,11 +114,28 @@ class Follow(models.Model):
         User,
         on_delete=models.CASCADE,
         related_name='follower',
-        verbose_name='Подписчик'
+        verbose_name='Подписчик',
+        help_text='Кто хочет подписаться',
     )
     author = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
         related_name='following',
         verbose_name='Автор',
+        help_text='Автор, на которого хотите подписаться',
     )
+
+    class Meta:
+        verbose_name = 'Подписка'
+        verbose_name_plural = 'Подписки'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'author'], name='unique_follow'
+            )
+        ]
+
+    def __str__(self):
+        return '{user}, {author}'.format(
+            author=self.author.username,
+            user=self.user.username
+        )

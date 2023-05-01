@@ -187,92 +187,109 @@ class ViewPostsTests(TestCase):
         third_request = self.authorized_client.get(reverse('posts:index'))
         self.assertNotEqual(first_request.content, third_request.content)
 
-    class PaginatorViewsTest(TestCase):
-        POSTS_NUMBER = 10
-        REST_POSTS = 3
 
-        @classmethod
-        def setUpClass(cls):
-            super().setUpClass()
-            cls.author = User.objects.create_user(username="auth")
-            cls.group = Group.objects.create(
-                title='Тестовая группа',
-                slug='test_slug',
-                description='Тестовое описание',
+class PaginatorViewsTest(TestCase):
+    POSTS_NUMBER = 10
+    REST_POSTS = 3
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.author = User.objects.create_user(username="auth")
+        cls.group = Group.objects.create(
+            title='Тестовая группа',
+            slug='test_slug',
+            description='Тестовое описание',
+        )
+        posts_list = [
+            Post(
+                author=cls.author,
+                text=f'Тестовый пост {count}',
+                group=cls.group,
             )
-            posts_list = [
-                Post(
-                    author=cls.author,
-                    text=f'Тестовый пост {count}',
-                    group=cls.group,
+            for count in range(13)
+        ]
+        Post.objects.bulk_create(posts_list)
+
+    def setUp(self):
+        cache.clear()
+        self.author_client = Client()
+        self.author_client.force_login(self.author)
+        self.post = Post.objects.get(id=1)
+
+    def test_paginator_count_posts(self):
+        reverse_values = (
+            reverse('posts:index'),
+            reverse('posts:group_list', kwargs={'slug': self.group.slug}),
+            reverse('posts:profile', kwargs={'username': self.author}),
+        )
+        for value in reverse_values:
+            with self.subTest(value=value):
+                response = self.author_client.get(value)
+                self.assertEqual(
+                    len(response.context.get('page_obj').object_list),
+                    self.POSTS_NUMBER
                 )
-                for count in range(13)
-            ]
-            Post.objects.bulk_create(posts_list)
-
-        def setUp(self):
-            self.author_client = Client()
-            self.author_client.force_login(self.author)
-            self.post = Post.objects.get(id=1)
-
-        def test_paginator_count_posts(self):
-            reverse_values = (
-                reverse('posts:index'),
-                reverse('posts:group_list', kwargs={'slug': self.group.slug}),
-                reverse('posts:profile', kwargs={'username': self.author}),
-            )
-            for reverse_value in reverse_values:
-                with self.subTest(reverse_value=reverse_value):
-                    response = self.author_client.get(reverse_value)
-                    self.assertEqual(
-                        len(response.context.get('page_obj').object_list),
-                        self.POSTS_NUMBER
-                    )
-                    response = self.author_client.get(
-                        reverse_value + '?page=2'
-                    )
-                    self.assertEqual(
-                        len(response.context.get('page_obj').object_list),
-                        self.REST_POSTS
-                    )
+                response = self.author_client.get(
+                    value + '?page=2'
+                )
+                self.assertEqual(
+                    len(response.context.get('page_obj').object_list),
+                    self.REST_POSTS
+                )
 
 
 class FollowTests(TestCase):
     ZERO_SUBSCRIBERS = 0
-    ONE_SUBSCRIBER = 1
+    TWO_SUBSCRIBER = 2
 
-    def setUp(self):
-        self.client_auth_follower = Client()
-        self.client_auth_following = Client()
-        self.user_follower = User.objects.create_user(username='follower',
-                                                      email='test_1@mail.ru',
-                                                      password='pass')
-        self.user_following = User.objects.create_user(username='following',
-                                                       email='test_2@mail.ru',
-                                                       password='pass')
-        self.post = Post.objects.create(
-            author=self.user_following,
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.user_follower = User.objects.create_user(
+            username='follower',
+            email='test_1@mail.ru',
+            password='pass'
+        )
+        cls.user_follower_second = User.objects.create_user(
+            username='follower2',
+            email='test_2@mail.ru',
+            password='pass'
+        )
+        cls.user_following = User.objects.create_user(
+            username='following',
+            email='test_2@mail.ru',
+            password='pass'
+        )
+        cls.post = Post.objects.create(
+            author=cls.user_following,
             text='Тестовая запись для тестирования ленты подписок'
         )
+        cls.follow = Follow.objects.create(
+            user=cls.user_follower,
+            author=cls.user_following,
+        )
+
+    def setUp(self):
+        cache.clear()
+        self.client_auth_follower = Client()
+        self.client_auth_follower_second = Client()
+        self.client_auth_following = Client()
         self.client_auth_follower.force_login(self.user_follower)
+        self.client_auth_follower_second.force_login(self.user_follower_second)
         self.client_auth_following.force_login(self.user_following)
 
     def test_follow(self):
         """Проверка подписки на выбранного автора."""
-        self.client_auth_follower.get(
+        self.client_auth_follower_second.get(
             reverse(
                 'posts:profile_follow',
                 kwargs={'username': self.user_following.username}
             ))
-        self.assertEqual(Follow.objects.all().count(), self.ONE_SUBSCRIBER)
+        self.assertEqual(Follow.objects.all().count(), self.TWO_SUBSCRIBER)
 
     def test_unfollow(self):
         """Проверка отписки от выбранного автора."""
-        self.client_auth_follower.get(
-            reverse(
-                'posts:profile_follow',
-                kwargs={'username': self.user_following.username}
-            ))
         self.client_auth_follower.get(
             reverse(
                 'posts:profile_unfollow',
@@ -282,8 +299,6 @@ class FollowTests(TestCase):
 
     def test_subscription_feed(self):
         """запись появляется в ленте подписчиков"""
-        Follow.objects.create(user=self.user_follower,
-                              author=self.user_following)
         response_sub = self.client_auth_follower.get(
             reverse('posts:follow_index')
         )
