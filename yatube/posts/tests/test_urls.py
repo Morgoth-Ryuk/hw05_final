@@ -1,7 +1,7 @@
 from django.test import TestCase, Client
-from ..models import User, Post, Group
 from django.urls import reverse
 from http import HTTPStatus
+from ..models import User, Post, Group
 
 
 class StaticURLTests(TestCase):
