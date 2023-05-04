@@ -33,6 +33,8 @@ ALLOWED_HOSTS = [
     '127.0.0.1',
     '[::1]',
     'testserver',
+    'www.lissamorgothbale.pythonanywhere.com',
+    'lissamorgothbale.pythonanywhere.com',
 ]
 
 # Добавьте IP адреса, при обращении с которых будет доступен DjDT
